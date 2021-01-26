@@ -35,29 +35,86 @@ const inputDuration = document.querySelector('.form__input--duration');
 const inputCadence = document.querySelector('.form__input--cadence');
 const inputElevation = document.querySelector('.form__input--elevation');
 
-// GEOLOCATION
-if (navigator.geolocation)
-  navigator.geolocation.getCurrentPosition(
-    function (position) {
-      const { latitude } = position.coords; // Destructuring
-      const { longitude } = position.coords;
-      console.log(`https://www.google.it/maps/@${latitude},${longitude}`);
-      // SHOW THE MAP (3rd party app: LEAFLET)
+class App {
+  // Private properties (present in all the istances created through this class)
+  #map;
+  #mapEvent;
 
-      const coords = [latitude, longitude];
-      const map = L.map('map').setView(coords, 15);
+  constructor() {
+    this._getPosition();
 
-      L.tileLayer('https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png', {
-        attribution:
-          '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-      }).addTo(map);
+    // FUNCTION per creare workout quando si pigia invio
+    form.addEventListener('submit', this._newWorkout.bind(this));
 
-      L.marker(coords)
-        .addTo(map)
-        .bindPopup('A pretty CSS3 popup.<br> Easily customizable.')
-        .openPopup();
-    },
-    function () {
-      alert('We could not get your position');
-    }
-  );
+    // Change Cadence to Elevation gain when switch between running and cycling
+    inputType.addEventListener('change', this._toggleElevationField);
+  }
+
+  _getPosition() {
+    // GEOLOCATION
+    if (navigator.geolocation)
+      navigator.geolocation.getCurrentPosition(
+        this._loadMap.bind(this),
+        function () {
+          alert('We could not get your position');
+        }
+      );
+  }
+
+  _loadMap(position) {
+    const { latitude } = position.coords; // Destructuring
+    const { longitude } = position.coords;
+    // SHOW THE MAP (3rd party app: LEAFLET)
+
+    const coords = [latitude, longitude];
+    this.#map = L.map('map').setView(coords, 16);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png', {
+      attribution:
+        '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+    }).addTo(this.#map);
+
+    // Handling clicks on map:
+    // MARKER - we can add an event listener on the map (the method .on() comes from the Leaflet library)
+    this.#map.on('click', this._showForm.bind(this));
+  }
+
+  _showForm(mapE) {
+    // SHOW THE FORM
+    this.#mapEvent = mapE;
+    form.classList.remove('hidden');
+    inputDistance.focus();
+  }
+
+  _toggleElevationField() {
+    inputElevation.closest('.form__row').classList.toggle('form__row--hidden');
+    inputCadence.closest('.form__row').classList.toggle('form__row--hidden');
+  }
+
+  _newWorkout(e) {
+    e.preventDefault();
+
+    // Clear input fields
+    inputDistance.value = inputDuration.value = inputCadence.value = inputElevation.value =
+      '';
+
+    // Display the marker
+    const { lat, lng } = this.#mapEvent.latlng;
+
+    L.marker([lat, lng])
+      .addTo(this.#map)
+      .bindPopup(
+        L.popup({
+          maxWidth: 250,
+          minWidth: 100,
+          autoClose: false,
+          closeOnClick: false,
+          className: 'running-popup',
+        })
+      )
+      .setPopupContent('Workout')
+      .openPopup();
+  }
+}
+
+const app = new App();
