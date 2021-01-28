@@ -104,17 +104,24 @@ class Cycling extends Workout {
 class App {
   // Private properties (present in all the istances created through this class)
   #map;
+  #mapZoomLevel = 16;
   #mapEvent;
   #workouts = [];
 
   constructor() {
+    // Get user position
     this._getPosition();
+
+    // Get data from Local Storage:
+    this._getLocalStorage();
 
     // FUNCTION per creare workout quando si pigia invio
     form.addEventListener('submit', this._newWorkout.bind(this));
 
     // Change Cadence to Elevation gain when switch between running and cycling
     inputType.addEventListener('change', this._toggleElevationField);
+
+    containerWorkouts.addEventListener('click', this._moveToPopup.bind(this));
   }
 
   _getPosition() {
@@ -134,7 +141,7 @@ class App {
     // SHOW THE MAP (3rd party app: LEAFLET)
 
     const coords = [latitude, longitude];
-    this.#map = L.map('map').setView(coords, 16);
+    this.#map = L.map('map').setView(coords, this.#mapZoomLevel);
 
     L.tileLayer('https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png', {
       attribution:
@@ -144,6 +151,11 @@ class App {
     // Handling clicks on map:
     // MARKER - we can add an event listener on the map (the method .on() comes from the Leaflet library)
     this.#map.on('click', this._showForm.bind(this));
+
+    // Render all workouts in the map (after the map will be loaded)
+    this.#workouts.forEach(work => {
+      this, this._renderWorkoutMarker(work);
+    });
   }
 
   _showForm(mapE) {
@@ -216,6 +228,9 @@ class App {
 
     // Hide for + Clear input fields
     this._hideForm();
+
+    // Set local storage to all workouts
+    this._setLocalStorage();
   }
 
   _renderWorkoutMarker(workout) {
@@ -285,6 +300,45 @@ class App {
           `;
 
     form.insertAdjacentHTML('afterend', html);
+  }
+
+  _moveToPopup(e) {
+    const workoutEl = e.target.closest('.workout');
+
+    if (!workoutEl) return; // Guardclose
+
+    const workout = this.#workouts.find(
+      work => work.id === workoutEl.dataset.id
+    );
+
+    this.#map.setView(workout.coords, this.#mapZoomLevel, {
+      // Method in Leaflet
+      animate: true,
+      pan: {
+        duration: 1,
+      },
+    });
+  }
+
+  _setLocalStorage() {
+    localStorage.setItem('workouts', JSON.stringify(this.#workouts));
+  }
+
+  _getLocalStorage() {
+    const data = JSON.parse(localStorage.getItem('workouts'));
+
+    // Check if there is data:
+    if (!data) return;
+    // Set initial workout list as the workouts in the LS
+    this.#workouts = data;
+    // Render all workouts in the list
+    this.#workouts.forEach(work => this._renderWorkout(work));
+  }
+
+  // Public UI
+  reset() {
+    localStorage.removeItem('workouts'); // Clear the LocalStorage
+    location.reload(); // reload the page
   }
 }
 
